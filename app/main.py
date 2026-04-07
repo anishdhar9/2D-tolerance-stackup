@@ -8,7 +8,6 @@ import numpy as np
 import streamlit as st
 
 from analysis.failure import failure_probability
-from analysis.sensitivity import feature_importance_by_variance
 from analysis.statistics import mean_2d
 from core.assembly import Assembly, Feature
 from core.simulation import MonteCarloSimulator
@@ -60,11 +59,9 @@ def main() -> None:
         assembly = Assembly(features=tuple(features))
         simulator = MonteCarloSimulator(assembly=assembly)
         points = simulator.run(int(n_samples))
-        feature_samples = assembly.sample_features(int(n_samples))
 
         mean_pos = mean_2d(points)
         fail_prob = failure_probability(points, radius=float(failure_radius))
-        importance = feature_importance_by_variance(feature_samples, points)
 
         fig = scatter_points(points, title="Monte Carlo Point Cloud")
         fig = add_target_circle(fig, radius=float(failure_radius))
@@ -72,13 +69,6 @@ def main() -> None:
         st.plotly_chart(fig, use_container_width=True)
         st.metric("Failure Probability", f"{fail_prob:.4f}")
         st.metric("Mean Position", f"({mean_pos[0]:.4f}, {mean_pos[1]:.4f})")
-
-        st.subheader("Feature Importance (Variance Contribution)")
-        ranking_rows = [
-            {"Feature": f"Feature {index + 1}", "Contribution": contribution}
-            for index, contribution in importance
-        ]
-        st.table(ranking_rows)
 
 
 if __name__ == "__main__":

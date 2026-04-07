@@ -27,6 +27,8 @@ class MonteCarloSimulator:
     def run(self, n_samples: int) -> NDArray[np.float64]:
         """Run Monte Carlo sampling and return points with shape ``(n_samples, 2)``."""
         validate_positive_int(n_samples, name="n_samples")
+        if not isinstance(n_samples, int) or n_samples <= 0:
+            raise ValueError("n_samples must be a positive integer.")
 
         samples = [np.asarray(self.assembly.simulate(), dtype=np.float64) for _ in range(n_samples)]
         points = np.vstack(samples)
