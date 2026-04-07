@@ -21,3 +21,5 @@ class Tolerance(ABC):
     def _validate_n_samples(n_samples: int) -> None:
         """Validate that ``n_samples`` is a positive integer."""
         validate_positive_int(n_samples, name="n_samples")
+        if not isinstance(n_samples, int) or n_samples <= 0:
+            raise ValueError("n_samples must be a positive integer.")

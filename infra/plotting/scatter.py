@@ -11,6 +11,13 @@ from infra.plotting._validation import PointArray, validate_points_2d
 def scatter_points(points: PointArray, title: str = "2D Samples") -> go.Figure:
     """Create a scatter figure for points with shape ``(n_samples, 2)``."""
     validate_points_2d(points)
+from numpy.typing import NDArray
+
+
+def scatter_points(points: NDArray[np.float64], title: str = "2D Samples") -> go.Figure:
+    """Create a scatter figure for points with shape ``(n_samples, 2)``."""
+    if points.ndim != 2 or points.shape[1] != 2:
+        raise ValueError("points must have shape (n_samples, 2).")
 
     figure = go.Figure()
     figure.add_trace(
