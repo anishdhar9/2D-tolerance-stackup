@@ -8,6 +8,8 @@ from typing import Protocol
 import numpy as np
 from numpy.typing import NDArray
 
+from core.validation import validate_positive_int
+
 
 class Assembly(Protocol):
     """Protocol for assemblies that can produce one simulated 2D point."""
@@ -24,6 +26,7 @@ class MonteCarloSimulator:
 
     def run(self, n_samples: int) -> NDArray[np.float64]:
         """Run Monte Carlo sampling and return points with shape ``(n_samples, 2)``."""
+        validate_positive_int(n_samples, name="n_samples")
         if not isinstance(n_samples, int) or n_samples <= 0:
             raise ValueError("n_samples must be a positive integer.")
 

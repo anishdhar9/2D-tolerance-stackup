@@ -4,6 +4,13 @@ from __future__ import annotations
 
 import numpy as np
 import plotly.graph_objects as go
+
+from infra.plotting._validation import PointArray, validate_points_2d
+
+
+def scatter_points(points: PointArray, title: str = "2D Samples") -> go.Figure:
+    """Create a scatter figure for points with shape ``(n_samples, 2)``."""
+    validate_points_2d(points)
 from numpy.typing import NDArray
 
 
