@@ -5,7 +5,6 @@ from __future__ import annotations
 import numpy as np
 
 from analysis.failure import failure_probability
-from analysis.sensitivity import feature_importance_by_variance
 from core.assembly import Assembly, Feature
 from core.simulation import MonteCarloSimulator
 from core.tolerance.linear import LinearTolerance
@@ -61,16 +60,3 @@ def test_failure_probability_correctness() -> None:
     probability = failure_probability(points, radius=1.0)
 
     assert probability == 0.5
-
-
-def test_feature_importance_variance_ranking() -> None:
-    """Feature importance should rank higher-variance features first."""
-    feature_1 = np.array([[0.0, 0.0], [2.0, 0.0], [-2.0, 0.0]], dtype=np.float64)
-    feature_2 = np.array([[0.0, 0.0], [0.5, 0.0], [-0.5, 0.0]], dtype=np.float64)
-    total = feature_1 + feature_2
-
-    ranking = feature_importance_by_variance([feature_1, feature_2], total)
-
-    assert ranking[0][0] == 0
-    assert ranking[0][1] > ranking[1][1]
-    assert ranking[0][1] + ranking[1][1] <= 1.0

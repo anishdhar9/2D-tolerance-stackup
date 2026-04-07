@@ -34,15 +34,7 @@ class Assembly:
         if not self.features:
             raise ValueError("Assembly requires at least one feature.")
 
-    def sample_features(self, n_samples: int) -> list[NDArray[np.float64]]:
-        """Return sampled point clouds for each feature."""
-        return [feature.sample(n_samples) for feature in self.features]
-
-    def sample_total(self, n_samples: int) -> NDArray[np.float64]:
-        """Return sampled total assembly positions with shape ``(n_samples, 2)``."""
-        feature_samples = self.sample_features(n_samples)
-        return np.sum(np.stack(feature_samples, axis=0), axis=0).astype(np.float64)
-
     def simulate(self) -> NDArray[np.float64]:
         """Return one sampled 2D position from all features in the assembly."""
-        return self.sample_total(1)[0]
+        sampled = [feature.sample(1)[0] for feature in self.features]
+        return np.sum(np.vstack(sampled), axis=0).astype(np.float64)
