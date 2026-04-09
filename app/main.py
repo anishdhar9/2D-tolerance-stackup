@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import streamlit as st
+from streamlit_drawable_canvas import st_canvas
 
 from analysis.failure import failure_probability
 from analysis.statistics import mean_2d
@@ -12,6 +13,7 @@ from core.assembly import Assembly
 from core.simulation import MonteCarloSimulator
 from infra.plotting.scatter import add_target_circle, scatter_points
 
+POINT_DISPLAY_RADIUS = 4
 
 def main() -> None:
     """Render interactive UI and orchestrate simulation workflow."""
@@ -40,15 +42,26 @@ def main() -> None:
         simulator = MonteCarloSimulator(assembly=assembly)
         points = simulator.run(int(n_samples))
 
-        mean_pos = mean_2d(points)
-        fail_prob = failure_probability(points, radius=float(failure_radius))
+        st.session_state.simulation_result = {
+            "points": points,
+            "mean": mean_2d(points),
+            "failure_probability": failure_probability(points, radius=float(failure_radius)),
+            "failure_radius": float(failure_radius),
+            "samples": int(n_samples),
+        }
+        st.session_state.last_simulated_signature = signature
 
-        fig = scatter_points(points, title="Monte Carlo Point Cloud")
-        fig = add_target_circle(fig, radius=float(failure_radius))
-
+    result = st.session_state.simulation_result
+    if result is not None:
+        st.subheader("Simulation Results")
+        fig = scatter_points(result["points"], title="Monte Carlo Point Cloud")
+        fig = add_target_circle(fig, radius=float(result["failure_radius"]))
         st.plotly_chart(fig, use_container_width=True)
-        st.metric("Failure Probability", f"{fail_prob:.4f}")
-        st.metric("Mean Position", f"({mean_pos[0]:.4f}, {mean_pos[1]:.4f})")
+
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Samples", f"{result['samples']}")
+        m2.metric("Failure Probability", f"{result['failure_probability']:.4f}")
+        m3.metric("Mean Position", f"({result['mean'][0]:.4f}, {result['mean'][1]:.4f})")
 
 
 if __name__ == "__main__":
