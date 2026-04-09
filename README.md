@@ -8,12 +8,15 @@ A Python-based foundation for a mechanical engineering simulation tool focused o
 - Keep business logic out of the UI layer.
 - Enable modular, extensible components for future simulation and reporting features.
 
-## Initial Structure
+## Current Structure
 
-- `app/` — application entrypoints and UI-facing orchestration.
-- `core/` — domain entities, value objects, and business rules.
-- `analysis/` — simulation and analysis use cases/services.
-- `infra/` — adapters for external systems and persistence.
+- `app/main.py` — Streamlit entrypoint + simulation workflow orchestration.
+- `app/ui/geometry_canvas.py` — interactive 2D drawing/manipulation layer (drawable canvas).
+- `app/ui/feature_mapper.py` — maps UI interactions to domain `Feature` objects.
+- `app/ui/types.py` — UI-only dataclasses used to isolate view models from domain entities.
+- `core/` — unchanged domain entities, tolerance models, simulation engine.
+- `analysis/` — unchanged analytics for mean/failure computations.
+- `infra/plotting/` — plotting adapters for simulation visualization.
 - `tests/` — unit and integration tests.
 
 ## Requirements
@@ -35,12 +38,14 @@ A Python-based foundation for a mechanical engineering simulation tool focused o
    pip install -r requirements.txt
    ```
 
-3. Run the placeholder app:
+3. Run the Streamlit app:
 
    ```bash
-   python -m app.main
+   streamlit run app/main.py
    ```
 
-## Notes
+## UI/Domain Separation
 
-This repository is intentionally initialized with minimal scaffolding. Add domain models and analysis services first, then connect UI adapters (e.g., Streamlit) without embedding business logic in the interface.
+- The **UI layer** is responsible for geometry drawing, user interaction, and feature-configuration forms.
+- The **mapper layer** converts UI specs into immutable domain `Feature` objects.
+- The **domain and simulation layers** (`core/`, `analysis/`) remain unchanged and UI-agnostic.
