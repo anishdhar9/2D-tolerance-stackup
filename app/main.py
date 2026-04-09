@@ -2,60 +2,40 @@
 
 from __future__ import annotations
 
-from typing import List
-
-import numpy as np
 import streamlit as st
 
 from analysis.failure import failure_probability
 from analysis.statistics import mean_2d
-from core.assembly import Assembly, Feature
+from app.ui.feature_mapper import build_ui_feature_specs, to_domain_features
+from app.ui.geometry_canvas import render_geometry_canvas
+from core.assembly import Assembly
 from core.simulation import MonteCarloSimulator
-from core.tolerance.linear import LinearTolerance
-from core.tolerance.position import CircularTolerance
 from infra.plotting.scatter import add_target_circle, scatter_points
 
 
-def _build_feature(index: int) -> Feature:
-    """Build one feature from Streamlit inputs."""
-    st.subheader(f"Feature {index + 1}")
-    col1, col2 = st.columns(2)
-    nominal_x = col1.number_input(f"Nominal X #{index + 1}", value=0.0, key=f"nx_{index}")
-    nominal_y = col2.number_input(f"Nominal Y #{index + 1}", value=0.0, key=f"ny_{index}")
-
-    tol_type = st.selectbox(
-        f"Tolerance Type #{index + 1}",
-        options=["linear", "circular"],
-        key=f"tol_type_{index}",
-    )
-
-    if tol_type == "linear":
-        col3, col4 = st.columns(2)
-        sigma_x = col3.number_input(f"Sigma X #{index + 1}", min_value=0.0, value=0.1, key=f"sx_{index}")
-        sigma_y = col4.number_input(f"Sigma Y #{index + 1}", min_value=0.0, value=0.1, key=f"sy_{index}")
-        tolerance = LinearTolerance(sigma_x=sigma_x, sigma_y=sigma_y)
-    else:
-        radius = st.number_input(f"Radius #{index + 1}", min_value=0.0, value=0.1, key=f"r_{index}")
-        tolerance = CircularTolerance(radius=radius)
-
-    nominal = np.array([nominal_x, nominal_y], dtype=np.float64)
-    return Feature(nominal=nominal, tolerance=tolerance)
-
-
 def main() -> None:
-    """Render UI and orchestrate simulation workflow."""
+    """Render interactive UI and orchestrate simulation workflow."""
+    st.set_page_config(page_title="2D Tolerance Stack-Up", layout="wide")
     st.title("2D Tolerance Stack-Up Simulator")
-    st.caption("UI orchestrates core domain + analysis services only.")
+    st.caption("Interactive geometry UI maps user-drawn features into the unchanged simulation backend.")
 
-    n_features = st.number_input("Number of Features", min_value=1, max_value=20, value=2, step=1)
-    n_samples = st.number_input("Monte Carlo Samples", min_value=100, max_value=500000, value=5000, step=100)
-    failure_radius = st.number_input("Failure Radius", min_value=0.0, value=1.0, step=0.1)
+    with st.sidebar:
+        st.header("Simulation Settings")
+        n_samples = st.number_input("Monte Carlo Samples", min_value=100, max_value=500000, value=5000, step=100)
+        failure_radius = st.number_input("Failure Radius", min_value=0.0, value=1.0, step=0.1)
+        units_per_px = st.number_input("Units per Pixel", min_value=0.001, value=0.01, step=0.001)
+        canvas_width = st.slider("Canvas Width", min_value=400, max_value=1200, value=900, step=50)
+        canvas_height = st.slider("Canvas Height", min_value=300, max_value=800, value=500, step=50)
 
-    features: List[Feature] = []
-    for idx in range(int(n_features)):
-        features.append(_build_feature(idx))
+    anchors = render_geometry_canvas(width=int(canvas_width), height=int(canvas_height))
 
-    if st.button("Run Simulation", type="primary"):
+    if not anchors:
+        st.stop()
+
+    ui_specs = build_ui_feature_specs(anchors, units_per_px=float(units_per_px))
+    features = to_domain_features(ui_specs)
+
+    if st.button("Run Simulation", type="primary", use_container_width=True):
         assembly = Assembly(features=tuple(features))
         simulator = MonteCarloSimulator(assembly=assembly)
         points = simulator.run(int(n_samples))
