@@ -1,74 +1,116 @@
-"""Streamlit UI orchestration for the 2D Tolerance Stack-Up Simulator."""
+"""Interactive geometry drawing app (UI-only, no simulation orchestration)."""
 
 from __future__ import annotations
 
-from typing import List
+from typing import Any, Literal, TypedDict
 
-import numpy as np
 import streamlit as st
+from streamlit_drawable_canvas import st_canvas
 
-from analysis.failure import failure_probability
-from analysis.statistics import mean_2d
-from core.assembly import Assembly, Feature
-from core.simulation import MonteCarloSimulator
-from core.tolerance.linear import LinearTolerance
-from core.tolerance.position import CircularTolerance
-from infra.plotting.scatter import add_target_circle, scatter_points
+POINT_DISPLAY_RADIUS = 4
 
 
-def _build_feature(index: int) -> Feature:
-    """Build one feature from Streamlit inputs."""
-    st.subheader(f"Feature {index + 1}")
-    col1, col2 = st.columns(2)
-    nominal_x = col1.number_input(f"Nominal X #{index + 1}", value=0.0, key=f"nx_{index}")
-    nominal_y = col2.number_input(f"Nominal Y #{index + 1}", value=0.0, key=f"ny_{index}")
+class GeometryObject(TypedDict):
+    """Normalized geometry object extracted from the drawable canvas."""
 
-    tol_type = st.selectbox(
-        f"Tolerance Type #{index + 1}",
-        options=["linear", "circular"],
-        key=f"tol_type_{index}",
-    )
+    type: Literal["point", "circle", "line", "unknown"]
+    x: float
+    y: float
+    radius: float | None
 
-    if tol_type == "linear":
-        col3, col4 = st.columns(2)
-        sigma_x = col3.number_input(f"Sigma X #{index + 1}", min_value=0.0, value=0.1, key=f"sx_{index}")
-        sigma_y = col4.number_input(f"Sigma Y #{index + 1}", min_value=0.0, value=0.1, key=f"sy_{index}")
-        tolerance = LinearTolerance(sigma_x=sigma_x, sigma_y=sigma_y)
-    else:
-        radius = st.number_input(f"Radius #{index + 1}", min_value=0.0, value=0.1, key=f"r_{index}")
-        tolerance = CircularTolerance(radius=radius)
 
-    nominal = np.array([nominal_x, nominal_y], dtype=np.float64)
-    return Feature(nominal=nominal, tolerance=tolerance)
+def parse_canvas_objects(objects: list[dict[str, Any]]) -> list[GeometryObject]:
+    """Parse raw fabric.js objects into structured geometry data.
+
+    Returns a list of dicts with:
+    - ``type``: point, circle, line, or unknown
+    - ``x``, ``y``: object position (center for circles/points, midpoint for lines)
+    - ``radius``: circle radius, otherwise ``None``
+    """
+    parsed: list[GeometryObject] = []
+
+    for obj in objects:
+        shape_type = str(obj.get("type", "unknown"))
+        left = float(obj.get("left", 0.0))
+        top = float(obj.get("top", 0.0))
+
+        if shape_type == "circle":
+            radius = float(obj.get("radius", 0.0))
+            parsed_type: Literal["point", "circle", "line", "unknown"] = (
+                "point" if radius <= float(POINT_DISPLAY_RADIUS) else "circle"
+            )
+            parsed.append(
+                {
+                    "type": parsed_type,
+                    "x": left + radius,
+                    "y": top + radius,
+                    "radius": radius if parsed_type == "circle" else None,
+                }
+            )
+            continue
+
+        if shape_type == "line":
+            x1 = float(obj.get("x1", 0.0))
+            y1 = float(obj.get("y1", 0.0))
+            x2 = float(obj.get("x2", 0.0))
+            y2 = float(obj.get("y2", 0.0))
+            parsed.append(
+                {
+                    "type": "line",
+                    "x": left + ((x1 + x2) / 2.0),
+                    "y": top + ((y1 + y2) / 2.0),
+                    "radius": None,
+                }
+            )
+            continue
+
+        parsed.append(
+            {
+                "type": "unknown",
+                "x": left,
+                "y": top,
+                "radius": None,
+            }
+        )
+
+    return parsed
 
 
 def main() -> None:
-    """Render UI and orchestrate simulation workflow."""
-    st.title("2D Tolerance Stack-Up Simulator")
-    st.caption("UI orchestrates core domain + analysis services only.")
+    """Render interactive canvas and output structured geometry only."""
+    st.set_page_config(page_title="2D Geometry Capture", layout="wide")
+    st.title("2D Geometry Capture")
+    st.caption("Draw features and extract structured geometry data for downstream mapping.")
 
-    n_features = st.number_input("Number of Features", min_value=1, max_value=20, value=2, step=1)
-    n_samples = st.number_input("Monte Carlo Samples", min_value=100, max_value=500000, value=5000, step=100)
-    failure_radius = st.number_input("Failure Radius", min_value=0.0, value=1.0, step=0.1)
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        canvas_width = st.slider("Canvas Width", min_value=400, max_value=1400, value=900, step=50)
+        canvas_height = st.slider("Canvas Height", min_value=300, max_value=900, value=550, step=50)
+        drawing_mode = st.radio("Mode", options=["point", "circle", "line"], index=0)
 
-    features: List[Feature] = []
-    for idx in range(int(n_features)):
-        features.append(_build_feature(idx))
+    with col1:
+        canvas_result = st_canvas(
+            fill_color="rgba(56, 189, 248, 0.2)",
+            stroke_color="#0284C7",
+            stroke_width=2,
+            point_display_radius=POINT_DISPLAY_RADIUS,
+            background_color="#FFFFFF",
+            width=canvas_width,
+            height=canvas_height,
+            drawing_mode=drawing_mode,
+            update_streamlit=True,
+            key="geometry_capture_canvas",
+        )
 
-    if st.button("Run Simulation", type="primary"):
-        assembly = Assembly(features=tuple(features))
-        simulator = MonteCarloSimulator(assembly=assembly)
-        points = simulator.run(int(n_samples))
+    raw_objects = canvas_result.json_data.get("objects", []) if canvas_result.json_data else []
+    geometry_data = parse_canvas_objects(raw_objects)
 
-        mean_pos = mean_2d(points)
-        fail_prob = failure_probability(points, radius=float(failure_radius))
-
-        fig = scatter_points(points, title="Monte Carlo Point Cloud")
-        fig = add_target_circle(fig, radius=float(failure_radius))
-
-        st.plotly_chart(fig, use_container_width=True)
-        st.metric("Failure Probability", f"{fail_prob:.4f}")
-        st.metric("Mean Position", f"({mean_pos[0]:.4f}, {mean_pos[1]:.4f})")
+    st.subheader("Parsed Geometry Objects")
+    if geometry_data:
+        st.dataframe(geometry_data, use_container_width=True, hide_index=True)
+        st.json(geometry_data)
+    else:
+        st.info("No objects drawn yet.")
 
 
 if __name__ == "__main__":
