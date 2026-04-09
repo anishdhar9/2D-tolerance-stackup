@@ -1,4 +1,4 @@
-"""Streamlit UI orchestration for the 2D Tolerance Stack-Up Simulator."""
+"""Interactive geometry drawing app (UI-only, no simulation orchestration)."""
 
 from __future__ import annotations
 
