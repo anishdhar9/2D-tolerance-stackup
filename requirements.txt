@@ -2,3 +2,4 @@ numpy
 scipy
 streamlit
 plotly
+streamlit-drawable-canvas
